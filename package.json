@@ -1,0 +1,42 @@
+{
+  "name": "chronogrid",
+  "productName": "Chronogrid",
+  "version": "1.0.0",
+  "description": "Offline calendar and time-block planner",
+  "author": "Ari Ratner",
+  "license": "MIT",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "dev.ariratner.chronogrid",
+    "productName": "Chronogrid",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "css/**/*",
+      "js/**/*",
+      "sample.ics",
+      "README.md",
+      "main.js"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  }
+}

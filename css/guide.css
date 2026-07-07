@@ -1,0 +1,135 @@
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.guide-spotlight {
+  position: absolute;
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 9999px rgba(15, 19, 32, 0.55);
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .guide-spotlight {
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.66);
+}
+
+.guide-card {
+  position: absolute;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 16px 18px 14px;
+  pointer-events: auto;
+  transition: top 0.18s ease, left 0.18s ease;
+  font-family: var(--font);
+}
+
+.guide-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.guide-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.guide-title {
+  font-size: 15px;
+  font-weight: 650;
+  padding-right: 28px;
+  margin-bottom: 6px;
+}
+
+.guide-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+  margin: 0 0 14px;
+}
+
+.guide-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.guide-counter {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.guide-btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.guide-btn:hover {
+  background: var(--hover);
+}
+
+.guide-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.guide-primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.guide-primary:hover {
+  background: var(--brand-strong);
+}
+
+.guide-skip {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-3);
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.guide-skip:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.help-btn {
+  color: var(--text-2);
+}
