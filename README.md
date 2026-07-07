@@ -21,4 +21,4 @@ The first time you open it there's a quick onboarding that points everything out
 - Import and export .ics files
 - Saves everything locally, no account or internet needed
 
-I built this myself and used Claude minorly for some of the setup stuff.
+I built this myself and used Claude minimally for small things.
