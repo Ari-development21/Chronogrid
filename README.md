@@ -1,3 +1,5 @@
+Demo: https://ari-development21.github.io/Chronogrid/
+
 # Chronogrid
 
 Chronogrid is a calendar and planner you run on your own computer. You make events, drag them around to move them, and switch between day, week, month and a few other views. It also shows you where your time actually went during the week. Everything saves on your own device, so there's no login and it works without internet.
