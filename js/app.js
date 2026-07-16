@@ -387,6 +387,7 @@
   function wireStore() {
     S.subscribe(function (reason) {
       if (reason === "date") {
+        window.Selection.clear(true);
         window.MiniCal.syncToSelected();
         renderView(window.Router.current());
         return;
@@ -402,6 +403,13 @@
         renderView(window.Router.current());
         return;
       }
+    });
+  }
+
+  function wireSelection() {
+    window.Selection.onChange(function () {
+      var r = window.Router.current();
+      if (r === "day" || r === "week" || r === "workweek") renderView(r);
     });
   }
 
@@ -441,6 +449,7 @@
     wireHeader();
     syncThemeSwitch();
     wireStore();
+    wireSelection();
     wireTimers();
 
     window.Router.onChange(activate);

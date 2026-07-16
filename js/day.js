@@ -3,6 +3,7 @@
 
   var T = window.Timeline;
   var S = window.Store;
+  var Sel = window.Selection;
   var HOUR_PX = 56;
 
   // this is the state
@@ -11,12 +12,13 @@
   var blocksLayer = null;
   var hoursEl = null;
   var draftEl = null;
+  var selectBox = null;
+  var selBar = null;
   var scrollRegion = null;
   var nowLine = null;
   var nowLabel = null;
   var allDayRow = null;
 
-  var selectedId = null;
   var drag = null;
   var wired = false;
   var anchoredDate = null;
@@ -33,6 +35,11 @@
     container.innerHTML = "";
     var wrap = document.createElement("div");
     wrap.className = "day-view calgrid";
+
+    selBar = document.createElement("div");
+    selBar.className = "sel-bar";
+    selBar.hidden = true;
+    wrap.appendChild(selBar);
 
     allDayRow = document.createElement("div");
     allDayRow.className = "allday-row";
@@ -56,9 +63,13 @@
     draftEl = document.createElement("div");
     draftEl.className = "draft-block";
     draftEl.hidden = true;
+    selectBox = document.createElement("div");
+    selectBox.className = "select-box";
+    selectBox.hidden = true;
     gridArea.appendChild(nowLine);
     gridArea.appendChild(blocksLayer);
     gridArea.appendChild(draftEl);
+    gridArea.appendChild(selectBox);
     timeline.appendChild(hoursEl);
     timeline.appendChild(gridArea);
     scrollRegion.appendChild(timeline);
@@ -131,7 +142,7 @@
       var isBuffer = blk.categoryId === "buffer";
       var el = document.createElement("div");
       el.className = "block" + (isBuffer ? " buffer" : "");
-      if (blk.id === selectedId) el.className += " selected";
+      if (!isBuffer && Sel.has(blk.id)) el.className += " selected";
       if (!isBuffer && hasTimerFor(blk.id)) el.className += " timed";
       el.dataset.id = blk.id;
 
@@ -164,6 +175,7 @@
       blocksLayer.appendChild(el);
     });
 
+    renderSelBar();
     updateNow();
     if (prevScroll !== null) {
       scrollRegion.scrollTop = prevScroll;
@@ -197,6 +209,41 @@
     allDayRow.appendChild(track);
   }
 
+  // this is the multi-select action bar
+  function renderSelBar() {
+    if (!selBar) return;
+    var evs = Sel.events();
+    if (!evs.length) { selBar.hidden = true; selBar.innerHTML = ""; return; }
+    selBar.hidden = false;
+    selBar.innerHTML = "";
+
+    var count = document.createElement("span");
+    count.className = "sel-count";
+    count.textContent = evs.length + " selected";
+    selBar.appendChild(count);
+
+    var applyBtn = document.createElement("button");
+    applyBtn.className = "btn btn-sm";
+    applyBtn.textContent = "Apply to…";
+    applyBtn.addEventListener("click", function () { window.ApplyTo.open(Sel.events()); });
+    selBar.appendChild(applyBtn);
+
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "btn btn-sm";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", function () {
+      var n = Sel.copy();
+      if (n) window.App.toast("Copied " + n);
+    });
+    selBar.appendChild(copyBtn);
+
+    var clearBtn = document.createElement("button");
+    clearBtn.className = "btn btn-sm btn-ghost";
+    clearBtn.textContent = "Clear";
+    clearBtn.addEventListener("click", function () { Sel.clear(); });
+    selBar.appendChild(clearBtn);
+  }
+
   function hasTimerFor(id) {
     return window.Timers.list().some(function (t) { return t.blockId === id; });
   }
@@ -221,17 +268,53 @@
         var id = blockEl.dataset.id;
         var blk = S.getEvent(id);
         if (!blk) return;
-        selectedId = id;
+        var additive = e.metaKey || e.ctrlKey || e.shiftKey;
         var isTop = e.target.classList.contains("handle-top");
         var isBottom = e.target.classList.contains("handle-bottom");
+        var isEdge = isTop || isBottom;
+
+        if (additive && !isEdge) {
+          Sel.toggle(id, true);
+          render();
+          e.preventDefault();
+          return;
+        }
+
+        var reduceTo = null;
+        if (isEdge) {
+          Sel.only(id, true);
+        } else if (!Sel.has(id)) {
+          Sel.only(id, true);
+        } else if (Sel.size() > 1) {
+          reduceTo = id;
+        }
+
+        var group = null;
+        if (!isEdge && Sel.size() > 1 && Sel.has(id)) {
+          group = Sel.list().map(function (sid) {
+            var s = S.getEvent(sid);
+            return s ? { id: sid, origStart: s.start, origEnd: s.end } : null;
+          }).filter(Boolean);
+        }
+
         drag = {
           mode: isTop ? "resize-top" : isBottom ? "resize-bottom" : "move",
           id: id,
           startY: e.clientY,
           origStart: blk.start,
           origEnd: blk.end,
+          group: group,
+          reduceTo: reduceTo,
           moved: false,
         };
+        render();
+        e.preventDefault();
+      } else if (e.shiftKey) {
+        var rect = gridArea.getBoundingClientRect();
+        var bx = e.clientX - rect.left, by = e.clientY - rect.top;
+        drag = { mode: "box", startX: bx, startY: by, curX: bx, curY: by, moved: false };
+        selectBox.hidden = false;
+        updateBox();
         e.preventDefault();
       } else {
         var min = eventMin(e);
@@ -245,6 +328,14 @@
     window.addEventListener("mousemove", function (e) {
       if (!drag) return;
       var snapInc = S.getConfig().snap;
+      if (drag.mode === "box") {
+        var rect = gridArea.getBoundingClientRect();
+        drag.curX = e.clientX - rect.left;
+        drag.curY = e.clientY - rect.top;
+        drag.moved = true;
+        updateBox();
+        return;
+      }
       if (drag.mode === "draw") {
         drag.curMin = eventMin(e);
         drag.moved = true;
@@ -256,12 +347,30 @@
       var blk = S.getEvent(drag.id);
       if (!blk) return;
       var deltaMin = (e.clientY - drag.startY) / pxPerMin();
-      var dur = drag.origEnd - drag.origStart;
       if (drag.mode === "move") {
-        var ns = T.snap(drag.origStart + deltaMin, snapInc);
-        ns = T.clamp(ns, dayStartMin(), dayEndMin() - dur);
-        blk.start = ns;
-        blk.end = ns + dur;
+        if (drag.group && drag.group.length > 1) {
+          var gd = T.snap(deltaMin, snapInc);
+          var minStart = Infinity, maxEnd = -Infinity;
+          drag.group.forEach(function (g) {
+            if (g.origStart < minStart) minStart = g.origStart;
+            if (g.origEnd > maxEnd) maxEnd = g.origEnd;
+          });
+          gd = T.clamp(gd, dayStartMin() - minStart, dayEndMin() - maxEnd);
+          drag.group.forEach(function (g) {
+            var ge = S.getEvent(g.id);
+            if (ge) {
+              var gDur = g.origEnd - g.origStart;
+              ge.start = g.origStart + gd;
+              ge.end = ge.start + gDur;
+            }
+          });
+        } else {
+          var dur = drag.origEnd - drag.origStart;
+          var ns = T.snap(drag.origStart + deltaMin, snapInc);
+          ns = T.clamp(ns, dayStartMin(), dayEndMin() - dur);
+          blk.start = ns;
+          blk.end = ns + dur;
+        }
       } else if (drag.mode === "resize-top") {
         var nt = T.snap(drag.origStart + deltaMin, snapInc);
         nt = T.clamp(nt, dayStartMin(), blk.end - T.MIN_DUR);
@@ -278,7 +387,10 @@
     window.addEventListener("mouseup", function (e) {
       if (!drag) return;
       var snapInc = S.getConfig().snap;
-      if (drag.mode === "draw") {
+      if (drag.mode === "box") {
+        selectBox.hidden = true;
+        if (drag.moved) { Sel.set(blocksInBox(), true); render(); }
+      } else if (drag.mode === "draw") {
         draftEl.hidden = true;
         var a = Math.min(drag.startMin, drag.curMin);
         var b = Math.max(drag.startMin, drag.curMin);
@@ -286,9 +398,15 @@
           var start = T.clamp(T.snap(a, snapInc), dayStartMin(), dayEndMin() - T.MIN_DUR);
           var end = T.clamp(T.snap(b, snapInc), start + T.MIN_DUR, dayEndMin());
           var ev = S.addEvent({ date: S.getSelectedDate(), start: start, end: end, categoryId: S.firstUserCategoryId(), title: "" });
-          selectedId = ev.id;
+          Sel.only(ev.id, true);
           window.Editor.open(ev.id, e.clientX, e.clientY);
+        } else if (!Sel.isEmpty()) {
+          Sel.clear(true);
+          render();
         }
+      } else if (drag.reduceTo && !drag.moved) {
+        Sel.only(drag.reduceTo, true);
+        render();
       } else if (drag.moved) {
         S.persist();
         S.emit("events");
@@ -302,9 +420,32 @@
       if (!blockEl || !gridArea.contains(blockEl)) return;
       var id = blockEl.dataset.id;
       if (!S.getEvent(id)) { window.App.toast("Buffer blocks are auto-managed"); return; }
-      selectedId = id;
+      Sel.only(id, true);
       window.Editor.open(id, e.clientX, e.clientY);
     });
+  }
+
+  // this is the box-select geometry
+  function updateBox() {
+    var x0 = Math.min(drag.startX, drag.curX);
+    var y0 = Math.min(drag.startY, drag.curY);
+    selectBox.style.left = x0 + "px";
+    selectBox.style.top = y0 + "px";
+    selectBox.style.width = Math.abs(drag.curX - drag.startX) + "px";
+    selectBox.style.height = Math.abs(drag.curY - drag.startY) + "px";
+  }
+
+  function blocksInBox() {
+    var x0 = Math.min(drag.startX, drag.curX), x1 = Math.max(drag.startX, drag.curX);
+    var y0 = Math.min(drag.startY, drag.curY), y1 = Math.max(drag.startY, drag.curY);
+    var out = [];
+    var els = blocksLayer.querySelectorAll(".block:not(.buffer)");
+    els.forEach(function (el) {
+      var ox0 = el.offsetLeft, oy0 = el.offsetTop;
+      var ox1 = ox0 + el.offsetWidth, oy1 = oy0 + el.offsetHeight;
+      if (x0 < ox1 && x1 > ox0 && y0 < oy1 && y1 > oy0) out.push(el.dataset.id);
+    });
+    return out;
   }
 
   function updateDraft(a, b) {

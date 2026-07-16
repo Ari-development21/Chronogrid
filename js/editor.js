@@ -5,7 +5,7 @@
   var S = window.Store;
 
   var pop = null;
-  var titleEl, catEl, startEl, endEl, dateEl, noteEl, allDayEl, timesRow, deleteBtn, timerBtn, closeBtn;
+  var titleEl, catEl, startEl, endEl, dateEl, noteEl, allDayEl, timesRow, deleteBtn, timerBtn, closeBtn, applyBtn;
   var editingId = null;
 
   // this is the popover markup and wiring
@@ -25,6 +25,7 @@
         '<div><label>End</label><input type="time" data-f="end" step="300" /></div>' +
       '</div>' +
       '<div class="pop-row"><label>Note</label><input type="text" data-f="note" /></div>' +
+      '<div class="pop-row pop-applyto"><button class="btn" data-a="applyto">Apply to…</button></div>' +
       '<div class="pop-actions">' +
         '<button class="btn btn-danger" data-a="delete">Delete</button>' +
         '<button class="btn" data-a="timer">Start Timer</button>' +
@@ -43,6 +44,7 @@
     deleteBtn = pop.querySelector('[data-a="delete"]');
     timerBtn = pop.querySelector('[data-a="timer"]');
     closeBtn = pop.querySelector('[data-a="close"]');
+    applyBtn = pop.querySelector('[data-a="applyto"]');
 
     titleEl.addEventListener("input", apply);
     catEl.addEventListener("change", apply);
@@ -52,6 +54,12 @@
     noteEl.addEventListener("input", apply);
     allDayEl.addEventListener("change", apply);
     closeBtn.addEventListener("click", close);
+    applyBtn.addEventListener("click", function () {
+      var e = S.getEvent(editingId);
+      if (!e) return;
+      window.ApplyTo.open([e]);
+      close();
+    });
     deleteBtn.addEventListener("click", function () {
       if (editingId) S.removeEvent(editingId);
       close();

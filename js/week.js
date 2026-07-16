@@ -3,12 +3,50 @@
 
   var T = window.Timeline;
   var S = window.Store;
+  var Sel = window.Selection;
   var HOUR_PX = 52;
 
   // this is the state
   var lastOpts = null;
   var drag = null;
   var dragEndedAt = 0;
+
+  // this is the multi-select action bar
+  function buildSelBar() {
+    var evs = Sel.events();
+    if (!evs.length) return null;
+
+    var bar = document.createElement("div");
+    bar.className = "sel-bar";
+
+    var count = document.createElement("span");
+    count.className = "sel-count";
+    count.textContent = evs.length + " selected";
+    bar.appendChild(count);
+
+    var applyBtn = document.createElement("button");
+    applyBtn.className = "btn btn-sm";
+    applyBtn.textContent = "Apply to…";
+    applyBtn.addEventListener("click", function () { window.ApplyTo.open(Sel.events()); });
+    bar.appendChild(applyBtn);
+
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "btn btn-sm";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", function () {
+      var n = Sel.copy();
+      if (n) window.App.toast("Copied " + n);
+    });
+    bar.appendChild(copyBtn);
+
+    var clearBtn = document.createElement("button");
+    clearBtn.className = "btn btn-sm btn-ghost";
+    clearBtn.textContent = "Clear";
+    clearBtn.addEventListener("click", function () { Sel.clear(); });
+    bar.appendChild(clearBtn);
+
+    return bar;
+  }
 
   // this is where the week grid gets drawn
   function renderGrid(opts) {
@@ -29,6 +67,9 @@
     container.innerHTML = "";
     var wrap = document.createElement("div");
     wrap.className = "week-view calgrid";
+
+    var selBar = buildSelBar();
+    if (selBar) wrap.appendChild(selBar);
 
     var header = document.createElement("div");
     header.className = "wk-header";
@@ -138,6 +179,7 @@
         var isBuffer = blk.categoryId === "buffer";
         var el = document.createElement("div");
         el.className = "wk-event" + (isBuffer ? " buffer" : "");
+        if (!isBuffer && Sel.has(blk.id)) el.className += " selected";
         el.dataset.id = blk.id;
         var top = ((blk.start - startMin) / 60) * HOUR_PX;
         var height = Math.max(((blk.end - blk.start) / 60) * HOUR_PX, 14);
@@ -166,6 +208,7 @@
             return function (e) {
               if (e.button !== 0) return;
               e.stopPropagation();
+              if (e.metaKey || e.ctrlKey || e.shiftKey) return;
               beginDrag(e, id, ev);
             };
           })(blk.id, blk));
@@ -173,6 +216,11 @@
             return function (e) {
               e.stopPropagation();
               if (Date.now() - dragEndedAt < 300) return;
+              if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                Sel.toggle(id);
+                return;
+              }
+              Sel.only(id, true);
               window.Editor.open(id, e.clientX, e.clientY);
             };
           })(blk.id));
@@ -195,6 +243,7 @@
           var start = T.clamp(T.snap(min, cfg.snap), startMin, endMin - 60);
           var end = Math.min(start + 60, endMin);
           var ev = S.addEvent({ date: dk, start: start, end: end, categoryId: S.firstUserCategoryId(), title: "" });
+          Sel.only(ev.id, true);
           window.Editor.open(ev.id, e.clientX, e.clientY);
         };
       })(dayKey));

@@ -120,7 +120,7 @@
     theme: "light",
     route: "week",
     snap: 15,
-    dayStart: 6,
+    dayStart: 0,
     dayEnd: 24,
     weekStartDay: 1,
     timezone: "",
@@ -221,8 +221,8 @@
     return null;
   }
 
-  function addEvent(ev) {
-    var e = {
+  function makeEvent(ev) {
+    return {
       id: ev.id || newId("e"),
       date: ev.date || state.selectedDate,
       start: ev.start,
@@ -232,10 +232,25 @@
       note: ev.note || "",
       allDay: !!ev.allDay,
     };
+  }
+
+  function addEvent(ev) {
+    var e = makeEvent(ev);
     state.events.push(e);
     persist();
     emit("events");
     return e;
+  }
+
+  function addEvents(list) {
+    var out = list.map(function (ev) {
+      var e = makeEvent(ev);
+      state.events.push(e);
+      return e;
+    });
+    persist();
+    emit("events");
+    return out;
   }
 
   function updateEvent(id, patch) {
@@ -366,6 +381,7 @@
       state.config = Object.assign({}, defaultConfig, saved.config);
       state.events = saved.events || [];
       state.selectedDate = saved.selectedDate || todayKey();
+      migrateFullDay();
       ensureBufferCategory();
       if (window.Timers && saved.timers) window.Timers.load(saved.timers);
       return { restored: true, timers: saved.timers };
@@ -374,6 +390,17 @@
     state.config = Object.assign({}, defaultConfig);
     state.selectedDate = todayKey();
     return { restored: false };
+  }
+
+  // this is the one-time full-day migration
+
+  function migrateFullDay() {
+    var c = state.config;
+    if (c.dayStart === 6 && c.dayEnd === 24 && !c.fullDayMigrated) {
+      c.dayStart = 0;
+      c.fullDayMigrated = true;
+      persist();
+    }
   }
 
   function ensureBufferCategory() {
@@ -429,6 +456,7 @@
     visibleEventsOn: visibleEventsOn,
     getEvent: getEvent,
     addEvent: addEvent,
+    addEvents: addEvents,
     updateEvent: updateEvent,
     removeEvent: removeEvent,
 
